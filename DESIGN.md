@@ -50,3 +50,5 @@ Brand mark, company search, people directory, department filter, SVG person node
 2026-10-09 — first implementation of the LinkedIn people graph workspace.
 
 2026-10-09 — added a keyless research dialog, scoped search links, clipboard preview rows and explicit selection before graph creation.
+
+2026-10-09 — company-name-only generation; removed manual research and connection settings from the visitor UI. Inferred lines are displayed by default.

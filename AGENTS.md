@@ -15,6 +15,6 @@ Read README.md and docs/ARCHITECTURE.md before changing data acquisition. Read D
 - Report actual deployment outcomes; a pushed workflow is not a successful deployment.
 - Do not change repository visibility without explicit authorization.
 
-- Keyless paste research is the default; do not require a paid API key or backend for the primary workflow.
+- Company-name-only automatic discovery is the required primary workflow. Never send visitors to manual search or ask them to configure a backend. Deployment configuration belongs to the owner.
 - Never insert raw clipboard HTML into the page. Extract safe profile anchors and render text only.
 - Additional same-company research must preserve user-edited roles and stored relationships.

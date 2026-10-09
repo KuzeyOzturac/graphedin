@@ -1,7 +1,7 @@
-import {parseResearch, searchLinks, mergeResearch} from './research.js';
+import {discoverCompany, backendUrl} from './client.js';
 import {validateGraph, demo, layout, suggestManagers, safeLinkedIn, department} from './model.js';
 const $ = id => document.getElementById(id);
-const STORE = 'graphedin.graph.v1'; const CONNECTION = 'graphedin.api.v1';
+const STORE = 'graphedin.graph.v1';
 let data = {schemaVersion:1,company:'Company graph',people:[]}, selected = '', displayPeople = [], apiBase = '', busy = false;
 let view = {x:0,y:0,w:960,h:600}, natural = {width:960,height:600};
 function message(value, error=false){$('status').textContent=value;$('status').classList.toggle('error',error);}
@@ -64,28 +64,27 @@ $('export-json').onclick=()=>download(filename()+'.json',JSON.stringify(data,nul
 $('export-svg').onclick=()=>{const svg=$('graph').cloneNode(true);svg.setAttribute('viewBox',`0 0 ${natural.width} ${natural.height+45}`);svg.setAttribute('width',natural.width);svg.setAttribute('height',natural.height+45);svg.removeAttribute('hidden');svg.removeAttribute('id');svg.insertBefore(svgEl('rect',{width:'100%',height:'100%',fill:'#f0f4ef'}),svg.firstChild);svg.append(svgEl('text',{x:20,y:natural.height+25,'font-family':'sans-serif','font-size':12,fill:'#21332d'},`${data.company} · ${data.mode==='demo'?'Fictional example':'LinkedIn search observations'} · Dashed = inferred; solid = user-confirmed`));download(filename()+'.svg',new XMLSerializer().serializeToString(svg),'image/svg+xml');};
 $('import-file').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>2000000)throw new Error('Import is limited to 2 MB.');const next=validateGraph(JSON.parse(await file.text()));data=next;selected='';$('department').value='';$('person-search').value='';save();render(true);message(`Imported ${data.people.length} people.`);}catch(e){message(e.message,true);}finally{$('import-file').value='';}};
 $('clear').onclick=()=>{data={schemaVersion:1,company:'Company graph',people:[]};selected='';save();render(true);message('Workspace cleared. Imported or discovered data can be loaded again.');};
-$('settings').onclick=()=>{$('api-url').value=apiBase;$('settings-dialog').showModal();};
 for(const b of document.querySelectorAll('[data-close]'))b.onclick=()=>$(b.dataset.close).close();
-$('settings-form').onsubmit=e=>{e.preventDefault();const value=$('api-url').value.trim();try{if(value){const u=new URL(value);if(u.username||u.password||u.search||u.hash||!(u.protocol==='https:'||(u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname))))throw new Error('Use an HTTPS backend URL, or localhost for development.');apiBase=u.href.replace(/\/$/,'');}else apiBase='';try{localStorage.setItem(CONNECTION,apiBase);}catch{}$('settings-dialog').close();message(apiBase ? 'Automatic discovery connection saved.' : 'Keyless paste research is enabled.');}catch(e){message(e.message,true);}};
 function openEditor(p){$('person-form').reset();$('edit-error').textContent='';$('edit-id').value=p?.id||'';$('person-dialog-title').textContent=p?'Edit person':'Add person';for(const[key,id]of [['name','person-name'],['role','person-role'],['department','person-dept'],['linkedin','person-linkedin'],['evidence','evidence']])$(id).value=p?.[key]||'';$('manager').replaceChildren(new Option('Unknown / no reporting line',''),...data.people.filter(q=>q.id!==p?.id).map(q=>new Option(q.name,q.id)));$('manager').value=p?.managerId||'';$('relationship').value=p?.relationship||'inferred';$('person-dialog').showModal();}
 $('add-person').onclick=()=>openEditor();
 $('person-form').onsubmit=e=>{e.preventDefault();try{const id=$('edit-id').value||crypto.randomUUID(),previous=data.people.find(p=>p.id===id);const linkedin=$('person-linkedin').value.trim();if(linkedin&&!safeLinkedIn(linkedin))throw new Error('Use an HTTPS LinkedIn /in/ profile URL.');const role=$('person-role').value.trim();const p={...previous,id,name:$('person-name').value,role,department:$('person-dept').value||department(role),linkedin,managerId:$('manager').value,relationship:$('relationship').value,evidence:$('evidence').value};const people=previous?data.people.map(q=>q.id===id?p:q):[...data.people,p];data=validateGraph({...data,people});selected=id;save();render(true);$('person-dialog').close();message('Person saved.');}catch(e){$('edit-error').textContent=e.message;}};
-let pastedHtml='', previewGraph=null;
-function updateResearchLinks(){const box=$('research-links');box.replaceChildren();const links=searchLinks($('research-company').value,$('research-scope').value);for(const [key,label] of [['google','Search Google ↗'],['bing','Search Bing ↗'],['linkedin','Search LinkedIn ↗']]){const a=el('a',label,'button');a.href=links[key];a.target='_blank';a.rel='noopener noreferrer';box.append(a);}}
-function invalidatePreview(){previewGraph=null;$('research-preview').replaceChildren();$('research-summary').textContent='';$('build-research').disabled=true;}
-function openResearch(company){$('research-company').value=company||$('company').value|| (data.people.length&&data.mode!=='demo'?data.company:'');$('research-paste').value='';pastedHtml='';$('research-error').textContent='';invalidatePreview();updateResearchLinks();$('research-dialog').showModal();}
-$('paste-research').onclick=()=>openResearch();
-$('research-company').oninput=()=>{invalidatePreview();updateResearchLinks();};$('research-scope').onchange=updateResearchLinks;
-$('research-paste').addEventListener('paste',e=>{const html=e.clipboardData?.getData('text/html')||'';const content=e.clipboardData?.getData('text/plain')||'';if(content.length+html.length>2000000){e.preventDefault();$('research-error').textContent='Pasted research is limited to 2 MB.';return;}e.preventDefault();$('research-paste').value=content;pastedHtml=html;invalidatePreview();$('research-error').textContent='';});
-$('research-paste').oninput=()=>{pastedHtml='';invalidatePreview();};
-$('parse-research').onclick=()=>{try{const result=parseResearch({company:$('research-company').value,content:$('research-paste').value,html:pastedHtml});previewGraph=result.graph;const box=$('research-preview');box.replaceChildren();for(const p of previewGraph.people){const row=el('label',undefined,'preview-row');const checkbox=el('input');checkbox.type='checkbox';checkbox.checked=true;checkbox.dataset.personId=p.id;checkbox.setAttribute('aria-label',`Include ${p.name}`);const copy=el('span');copy.append(el('strong',p.name),el('small',p.role));const link=el('a','LinkedIn ↗');link.href=p.linkedin;link.target='_blank';link.rel='noopener noreferrer';row.append(checkbox,copy,link);box.append(row);} $('research-summary').textContent=`${previewGraph.people.length} people extracted${result.ignored?` · ${result.ignored} unrecognized entries skipped`:''}`;$('build-research').disabled=!previewGraph.people.length;$('research-error').textContent=previewGraph.people.length?'':result.warnings[0];}catch(e){$('research-error').textContent=e.message;}};
-$('research-form').onsubmit=e=>{e.preventDefault();try{if(!previewGraph)return;const checked=new Set([...$('research-preview').querySelectorAll('input:checked')].map(e=>e.dataset.personId));if(!checked.size)throw new Error('Select at least one person.');const incoming={...previewGraph,people:previewGraph.people.filter(p=>checked.has(p.id))};const result=mergeResearch(data,incoming);data=result.graph;selected='';$('person-search').value='';$('department').value='';$('company').value=data.company;save();render(true);$('research-dialog').close();message(`Added ${result.added} people from pasted LinkedIn research${result.duplicate?`; ${result.duplicate} duplicates skipped`:''}. Review current roles; reporting lines are unverified.`);}catch(e){$('research-error').textContent=e.message;}};
+let ready;
 $('company-form').onsubmit=async e=>{
-  e.preventDefault();if(busy)return;const company=$('company').value.trim();if(!apiBase){openResearch(company);return;}
-  busy=true;$('generate').disabled=true;$('loading').hidden=false;render();message(`Searching publicly indexed LinkedIn profiles for ${company}…`);
-  try{const base=apiBase||location.origin;const url=new URL(`${base}/api/discover`);url.searchParams.set('company',company);const response=await fetch(url,{signal:AbortSignal.timeout(25000),credentials:'omit'});let result;try{result=await response.json();}catch{throw new Error('The backend did not return JSON. Check Connection settings.');}if(!response.ok)throw new Error(result.error||'Search failed.');const next=validateGraph(result);data=next;selected='';$('person-search').value='';$('department').value='';save();message(data.people.length?`Found ${data.people.length} LinkedIn profile candidates. Verify current employment. Reporting lines are unknown until reviewed.`:'No indexed profiles found. Try the full company name or import profile data.');}catch(e){message((e.name==='TimeoutError'?'Search timed out.':e.message)+' Keyless research is available instead.',true);openResearch(company);}finally{busy=false;$('generate').disabled=false;$('loading').hidden=true;render(true);}
+  e.preventDefault();if(busy)return;
+  busy=true;$('generate').disabled=true;$('loading').hidden=false;render();
+  const company=$('company').value.trim();message(`Finding people and organizing roles for ${company}…`);
+  try{
+    await ready;
+    const result=await discoverCompany(company,apiBase);
+    data=validateGraph(result);selected='';$('person-search').value='';$('department').value='';$('suggest').checked=true;
+    save();
+    message(data.people.length?`Found ${data.people.length} LinkedIn profile candidates. Dashed lines are inferred from titles.${result.warnings?.length?' Some searches were unavailable; coverage is partial.':''}`:'No publicly indexed profiles found for this name. Try the full company name.');
+  }catch(e){message(e.name==='TimeoutError'?'Discovery timed out. Try again.':e.message,true);}
+  finally{busy=false;$('generate').disabled=false;$('loading').hidden=true;render(true);}
 };
-async function init(){try{const saved=localStorage.getItem(STORE);if(saved)data=validateGraph(JSON.parse(saved));apiBase=localStorage.getItem(CONNECTION)||'';}catch{message('Saved data could not be restored. Import a previously exported JSON file.',true);}
-  try{const config=await(await fetch('./config.json')).json();if(!apiBase&&config.apiBaseUrl)apiBase=config.apiBaseUrl;}catch{}
-  render(true);if(data.people.length)message(data.mode==='demo'?'Restored fictional example.':'Restored your previous workspace from this browser.');}
-init();
+async function init(){
+  try{const saved=localStorage.getItem(STORE);if(saved)data=validateGraph(JSON.parse(saved));}catch{message('Saved data could not be restored. Import a previously exported JSON file.',true);}
+  try{const response=await fetch('./config.json',{cache:'no-store'});const config=await response.json();apiBase=backendUrl(config.apiBaseUrl,location.hostname,location.origin);}catch{apiBase='';}
+  render(true);if(data.people.length)message(data.mode==='demo'?'Restored fictional example.':'Restored your previous workspace from this browser.');
+}
+ready=init();

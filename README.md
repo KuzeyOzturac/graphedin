@@ -1,41 +1,32 @@
 # GraphEdIn
 
-Company people graphs sourced from user-pasted public LinkedIn research. Enter a company name, open a public search, paste results, review extracted people, and build a graph. The default workflow runs entirely on GitHub Pages without an API key or backend.
+Enter a company name to discover public LinkedIn profile candidates and generate a people graph automatically. Visitors do not search, paste results, enter keys or configure a backend.
 
-## What is implemented
+## Implementation and deployment status
 
-- Keyless company research with Google, Bing and LinkedIn search launchers.
-- Plain-text, rich-clipboard and spreadsheet paste parsing; profile preview and selection before building the graph.
-- Deduplication by LinkedIn profile URL and merging that preserves existing user edits.
-- Optional automatic discovery through a self-hosted SearXNG instance (no search API key) or Brave Search (key required), restricted to LinkedIn `/in/` URLs.
-- Interactive SVG graph with pan, zoom, fit, keyboard navigation, department filters and people search.
-- Profile inspector with LinkedIn link, search excerpt, and observation date.
-- Optional dashed title-based reporting suggestions. No reporting relationships are invented as confirmed facts.
-- Add/edit/remove people and reporting relationships, with evidence required for user-confirmed lines.
-- JSON import/export, standalone SVG export, browser-local persistence and a clearly labeled fictional example.
-- Dependency-free Node backend and optional Cloudflare Worker adapter. API keys stay server-side.
-- Validation for cycles, duplicate IDs, missing managers, unsafe profile URLs and oversized imports.
-- Test/build/deploy workflow for GitHub Pages.
+The company-name-only frontend and automatic search backend are implemented. The GitHub Pages frontend is deployed separately from the discovery API. **Live automatic discovery is blocked until the owner provisions a search backend and sets `apiBaseUrl` in `config.json`.** The current empty configuration reports that dependency honestly; it does not open manual research or substitute fictional people.
 
-## Important scope
+The backend supports Brave Search (an owner-held key) or an owner-hosted SearXNG endpoint (no search API key). Three bounded searches cover general profiles, leadership and other roles; results are filtered by company mention, deduplicated by LinkedIn URL and retain excerpts and timestamps. Partial provider failures are disclosed.
 
-This is **search-index research**, not a LinkedIn employee directory API. Optional Brave search finds up to 20 profile candidates per query; SearXNG responses are limited to 50. Pasted research can include up to 500 people. Neither route can guarantee full coverage, current employment, or accurate titles. The parser retains excerpts for review. LinkedIn sign-in, session cookies, and authenticated scraping are not used. Company names can be ambiguous. The user must check each profile and remove unrelated or former employees.
+## Graph behavior
 
-Public profile titles do not establish who reports to whom. Nodes are placed by title seniority; inferred links are disabled by default and visibly dashed when enabled. Solid lines mean **user-confirmed with supplied evidence**, not independently verified by GraphEdIn. Exports preserve this distinction. The fictional example is never substituted for a failed live search.
+- People are placed by title seniority. Dashed reporting suggestions appear automatically when a unique plausible manager exists; they are inferred, not verified.
+- Ambiguous reporting relationships remain unconnected. No complete employee census or current-employment guarantee is claimed.
+- Profile inspection, optional editing, filters, pan/zoom, JSON import/export and SVG export remain available.
+- A separate fictional example is always labeled. Failed discovery never loads it.
+- Data stays in browser storage. Provider credentials stay on the server.
 
-## Run locally
+## Owner setup
 
-The published Pages app requires no installation, API key or backend. Click **Research company**, open a search, copy the results including names and profile links, paste them, preview, and build. Additional batches for the same company merge into your graph.
-
-For local development, Node.js 22 or newer is required. No package installation is needed.
+Node.js 22 or newer; no package installation is required.
 
 ```sh
 cp .env.example .env
-# Optional automatic discovery: set SEARXNG_URL or BRAVE_SEARCH_API_KEY.
+# Set SEARXNG_URL or BRAVE_SEARCH_API_KEY in the server environment.
 node --env-file=.env server/index.js
 ```
 
-Open http://localhost:3000. With no backend URL configured, **Research company** opens keyless paste research. Automatic discovery is optional; its backend requires either a SearXNG endpoint or a Brave key.
+Localhost automatically uses its local server. For production, deploy `server/index.js` to a Node host or `server/worker.js` to Cloudflare, set the allowed origin to `https://kuzeyozturac.github.io`, and set the API's HTTPS origin in `config.json`. These are owner deployment steps, never visitor steps. GitHub Pages serves static files and cannot run the discovery API.
 
 ```sh
 npm run check
@@ -43,13 +34,7 @@ npm test
 npm run build
 ```
 
-`dist/` contains only the public frontend. `server/`, `.env`, and API keys are never copied into it. All asset paths are relative so `/graphedin/` works on Pages.
-
-## Deploy
-
-See [docs/SETUP_AND_TEST.md](docs/SETUP_AND_TEST.md) for complete GitHub Pages and backend setup. The default keyless workflow works on Pages alone. Pages cannot execute an optional automatic-search backend. After deploying that API, set its HTTPS origin in the app's **Connection settings**, or set `apiBaseUrl` in `config.json` for all visitors.
-
-Production status must be checked in GitHub Actions; a committed workflow alone does not prove that Pages is live. A private repository requires a GitHub plan that supports Pages for private repositories. Enabling Pages is an administrative setting, separate from source write access.
+See [docs/SETUP_AND_TEST.md](docs/SETUP_AND_TEST.md) for deployment and verification. Public search observations may be incomplete or outdated, and title-based lines do not prove reporting relationships. LinkedIn sign-in, cookies and authenticated scraping are not used.
 
 ## Data format
 

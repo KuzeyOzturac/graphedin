@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 await rm('dist',{recursive:true,force:true});await mkdir('dist/src',{recursive:true});
 for(const name of ['favicon.svg','config.json'])await cp(name,`dist/${name}`);
 const hashes=new Map();
-for(const name of ['model.js','research.js','app.js','style.css']){
+for(const name of ['model.js','client.js','app.js','style.css']){
   let source=await readFile(`src/${name}`,'utf8');
   for(const [original,hashed]of hashes)source=source.replaceAll(`./${original}`,`./${hashed}`);
   const hash=createHash('sha256').update(source).digest('hex').slice(0,12);

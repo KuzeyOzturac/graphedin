@@ -1,3 +1,7 @@
+# Superseded primary-flow decision
+
+On 2026-10-09 the user clarified that visitors must supply only a company name. Assisted paste research is no longer the product flow. Automatic discovery requires an owner-provisioned search backend; visitors never configure it. The earlier research below remains historical context, not implementation guidance.
+
 # Keyless discovery decision — 2026-10-09
 
 ## Goal

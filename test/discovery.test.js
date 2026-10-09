@@ -12,3 +12,18 @@ test('search uses the server secret and LinkedIn-only query',async()=>{
 test('provider failures preserve rate-limit meaning',async()=>{await assert.rejects(discover('Kale','key',async()=>({ok:false,status:429})),e=>e.status===429);});
 test('self-hosted SearXNG discovery needs no API key',async()=>{let called;const mock=async(url,options)=>{called={url,options};return{ok:true,json:async()=>({results:[{title:'Elif Yılmaz - CTO - LinkedIn',url:'https://www.linkedin.com/in/elif',content:'Kale technology leader.'}]})}};const graph=await discover('Kale','',mock,'https://search.example/');assert.equal(called.url.pathname,'/search');assert.equal(called.url.searchParams.get('format'),'json');assert.equal(called.options.headers['X-Subscription-Token'],undefined);assert.equal(graph.people.length,1);assert.equal(graph.people[0].excerpt,'Kale technology leader.');});
 test('a blocked HTML response is not reported as no search results',async()=>{await assert.rejects(discover('Kale','',async()=>({ok:true,json:async()=>{throw new Error('not JSON')}}),'https://search.example/'),e=>e.status===502);});
+test('automatic discovery combines role searches and rejects unrelated company snippets',async()=>{
+ let calls=0;
+ const mock=async()=>{calls++;return {ok:true,json:async()=>({web:{results:[
+  {title:'Elif Yılmaz - CTO - LinkedIn',url:'https://www.linkedin.com/in/elif',description:'CTO at Kale.'},
+  {title:'Unrelated Person - LinkedIn',url:'https://www.linkedin.com/in/unrelated',description:'Works for Kalesoft.'}
+ ]}})}};
+ const graph=await discover('Kale','key',mock);
+ assert.equal(calls,3);assert.equal(graph.people.length,1);assert.equal(graph.warnings.length,0);
+ assert.equal(graph.people[0].managerId,'');
+});
+test('partial upstream failures keep sourced candidates and disclose incomplete coverage',async()=>{
+ let calls=0;
+ const graph=await discover('Kale','key',async()=>++calls===2?{ok:false,status:502}:{ok:true,json:async()=>({web:{results:[{title:'Elif Yılmaz - CTO - Kale - LinkedIn',url:'https://www.linkedin.com/in/elif',description:'Kale technology leader.'}]}})});
+ assert.equal(graph.people.length,1);assert.equal(graph.warnings.length,1);
+});

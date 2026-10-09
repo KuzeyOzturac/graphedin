@@ -2,29 +2,29 @@
 
 ## Runtime boundaries
 
-By default the frontend opens company-specific public searches, receives user-pasted clipboard content, previews profile candidates and builds the graph locally. No remote content scraping, API key or backend is involved. The optional automatic mode calls a separately hosted `/api/discover?company=...` API. That backend queries a self-hosted SearXNG instance or Brave for LinkedIn profile search results, normalizes those results, and returns a graph without reporting links. The browser validates the response, renders it, and saves user edits locally.
+Visitors submit one company name. `src/client.js` calls the owner-configured discovery API; `server/discovery.js` executes three concurrent searches against Brave or an owned SearXNG service, filters observations mentioning the company, deduplicates profiles and returns sourced candidates. The browser validates the graph and renders inferred lines automatically. No manual-research dialog or visitor connection settings are present.
 
-- `index.html`, `src/style.css`: responsive workspace, dialogs and accessible controls.
-- `src/app.js`: browser state, SVG drawing, navigation, filtering, editing, import/export, and API client.
-- `src/research.js`: safe search links, plain/rich clipboard parsing, spreadsheet support, selection and deduplicated merges.
-- `src/model.js`: shared normalized schema, LinkedIn URL checks, validation, title tiers, optional inferred-manager suggestions, and graph layout.
-- `server/discovery.js`: company input validation, Brave request, result parser, source excerpts and timestamps.
-- `server/index.js`: Node HTTP adapter, CORS allowlist, rate limiting, bounded cache and local static development server.
-- `server/worker.js`: optional Worker API adapter, platform rate limiter and edge cache.
-- `scripts/build.js`: copies only frontend files into `dist/`.
-- `.github/workflows/pages.yml`: syntax checks, tests, static build and Pages deployment.
+GitHub Pages serves the frontend only. The API is a separate Node or Worker deployment. An empty owner connection configuration is an explicit unavailable state, not a completed live discovery deployment.
+
+- `src/app.js`: graph UI, local persistence and optional editing/import/export.
+- `src/client.js`: deployment connection validation and bounded automatic-discovery request.
+- `src/model.js`: safe normalized schema, validation, layout and inferred reporting suggestions.
+- `server/discovery.js`: company validation, three search queries, normalization, deduplication, company mention filtering and partial-failure warnings.
+- `server/index.js`, `server/worker.js`: HTTP adapters, allowlisted CORS, rate limits and 15-minute cache.
+- `src/research.js`: legacy paste parser retained for compatibility and tests; not imported or shipped by the active frontend.
+- `scripts/build.js`: frontend-only content-hashed assets; credentials and server code excluded.
 
 ## Evidence model
 
 `linkedin` and `excerpt` identify the source observation. Search results are candidate profiles; employer membership and title accuracy are not certified. `observedAt` records retrieval time, not source publication time.
 
-`managerId` is a stored user-supplied reporting link. `relationship` is `inferred` or `confirmed`; confirmed links require an evidence note. Confirmation is the user's claim and is not independently audited. Title-based suggestions are a display-only copy and never overwrite source data or exported JSON.
+`managerId` is a stored user-supplied reporting link. `relationship` is `inferred` or `confirmed`; confirmed links require an evidence note. Confirmation is the user's claim and is not independently audited. Title-based suggestions are shown by default as a display-only copy and never overwrite source data or exported JSON.
 
 Suggestions require a unique candidate at the closest more senior title tier in the same department, or a unique top executive fallback. They are still guesses. Ambiguous candidates produce no link. Title parsing is English heuristic logic and should be reviewed for multilingual or unusual titles.
 
 ## Known limits
 
-- Optional Brave search is bounded to 20 profile results per request; SearXNG is bounded to 50. Clipboard imports support up to 500 people. No pagination or complete employee census is claimed.
+- Three concurrent queries return at most 60 Brave or 150 SearXNG observations before deduplication. No pagination or complete employee census is claimed.
 - Result titles may contain company names or outdated positions. Display retains text rather than using a model to hallucinate missing information.
 - Initial graph placement reflects title tier rather than a verified org chart.
 - Layout is deterministic by level, department and name; it is not an optimal edge-crossing algorithm.
@@ -37,6 +37,6 @@ Suggestions require a unique candidate at the closest more senior title tier in 
 
 Additional search providers should return the existing normalized graph shape and include excerpts and retrieval dates. Keep provider secrets exclusively in backend environment variables. An authorized LinkedIn data provider can replace Brave without changing the graph view. Never convert profile membership into confirmed reporting relationships automatically.
 
-## Keyless research boundary
+## Configuration ownership
 
-The app cannot read another browser tab. A user initiates external search and explicitly pastes content into GraphEdIn. Rich clipboard HTML is used only to extract names and safe profile URLs; it is never inserted into the page. No script is executed and no pasted links are fetched automatically. Preview checkbox selections determine which people are imported. Pasting is a local operation; no clipboard-reading permission is requested.
+Only the owner sets the server search provider and the public API origin. No provider key or auth cookie is accepted by the frontend. Browser-local backend overrides from the legacy assisted workflow are ignored. Localhost uses the same-origin development server; production requires explicit configuration. Search failure preserves the previous chart and displays an error instead of starting manual work.

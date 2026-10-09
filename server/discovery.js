@@ -21,19 +21,30 @@ export function parseResults(results, company, now = new Date().toISOString()) {
 }
 export async function discover(company, key, fetchImpl = fetch, searxngUrl = '') {
   company = companyName(company);
-  if (!key && !searxngUrl) throw Object.assign(new Error('Automatic search is not configured. Use keyless paste research, or configure SEARXNG_URL on the backend.'), {status:503});
+  if (!key && !searxngUrl) throw Object.assign(new Error('Automatic discovery is not configured by the site owner.'), {status:503});
   const query = `site:linkedin.com/in/ "${company}"`;
-  const url = searxngUrl ? new URL('search', searxngUrl.replace(/\/$/, '') + '/') : new URL('https://api.search.brave.com/res/v1/web/search');
-  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) throw Object.assign(new Error('Invalid server search configuration.'), {status:503});
-  url.search = new URLSearchParams(searxngUrl ? {q:query,format:'json',categories:'general'} : {q:query,count:'20',extra_snippets:'true'}).toString();
-  const headers = {Accept:'application/json'};
-  if (!searxngUrl) headers['X-Subscription-Token'] = key;
-  const response = await fetchImpl(url, {headers,signal:AbortSignal.timeout(15000)});
-  if (!response.ok) throw Object.assign(new Error(response.status === 429 ? 'Search provider rate limit reached. Try again later.' : 'The search provider could not complete the request. Check the backend configuration.'), {status:response.status === 429 ? 429 : 502});
-  let data;
-  try { data = await response.json(); } catch { throw Object.assign(new Error('Search returned a non-JSON response. The provider may be blocked or misconfigured; use keyless paste research.'), {status:502}); }
-  if (searxngUrl && !Array.isArray(data.results)) throw Object.assign(new Error('Search returned an unsupported response.'), {status:502});
-  const results = searxngUrl ? data.results.slice(0, 50).map(r => ({...r,description:r.content})) : (data.web?.results || []);
-  const graph = parseResults(results, company);
-  return {...graph, query, coverage:`Up to ${searxngUrl ? 50 : 20} publicly indexed profile candidates. Snippets may describe previous roles. Verify current employment and titles. Reporting lines are not verified.`};
+  const queries=[query,`${query} (CEO OR president OR director OR head)`,`${query} (manager OR lead OR engineer)`];
+  const search=async q=>{
+    const url = searxngUrl ? new URL('search', searxngUrl.replace(/\/$/, '') + '/') : new URL('https://api.search.brave.com/res/v1/web/search');
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) throw Object.assign(new Error('Invalid server search configuration.'), {status:503});
+    url.search = new URLSearchParams(searxngUrl ? {q,format:'json',categories:'general'} : {q,count:'20',extra_snippets:'true'}).toString();
+    const headers = {Accept:'application/json'};
+    if (!searxngUrl) headers['X-Subscription-Token'] = key;
+    const response = await fetchImpl(url, {headers,signal:AbortSignal.timeout(15000)});
+    if (!response.ok) throw Object.assign(new Error(response.status === 429 ? 'Search provider rate limit reached. Try again later.' : 'The search provider could not complete the request.'), {status:response.status === 429 ? 429 : 502});
+    let data;
+    try { data = await response.json(); } catch { throw Object.assign(new Error('The search provider returned an invalid response.'), {status:502}); }
+    if(searxngUrl&&!Array.isArray(data.results)||!searxngUrl&&!Array.isArray(data.web?.results)) throw Object.assign(new Error('Search returned an unsupported response.'), {status:502});
+    return searxngUrl ? data.results.slice(0,50).map(r=>({...r,description:r.content})) : data.web.results.slice(0,20);
+  };
+  const responses=await Promise.allSettled(queries.map(search));
+  const successful=responses.filter(r=>r.status==='fulfilled');
+  if(!successful.length)throw responses.find(r=>r.status==='rejected').reason;
+  // Keep only candidates whose public observation mentions the queried company.
+  const normalize=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  const employer=normalize(company);
+  const results=successful.flatMap(r=>r.value).filter(r=>(' '+normalize(`${r.title} ${r.description}`)+' ').includes(' '+employer+' '));
+  const graph=parseResults(results,company);
+  const warnings=responses.flatMap((r,i)=>r.status==='rejected'?[`Search ${i+1} was unavailable. Coverage is partial.`]:[]);
+  return {...graph,query,queries,warnings,coverage:`Public LinkedIn profile candidates from ${successful.length} searches. Employment and titles may be outdated. Reporting lines are inferred, not verified.`};
 }
