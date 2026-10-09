@@ -24,7 +24,7 @@ function render(reset=false){
   const list=$('people-list');list.replaceChildren();
   for(const p of displayPeople){const button=el('button',undefined,'person-row'+(p.id===selected?' active':''));const avatar=el('span',initials(p),'initials');const copy=el('span');copy.append(el('strong',p.name),el('small',p.role));button.append(avatar,copy);button.onclick=()=>select(p.id);list.append(button);}
   if(!displayPeople.length && data.people.length)list.append(el('p','No people match these filters.','source-excerpt'));
-  const graph=$('graph');graph.replaceChildren();$('empty').hidden=displayPeople.length>0||busy;graph.hidden=!displayPeople.length||busy;
+  const graph=$('graph');graph.replaceChildren();$('empty').hidden=displayPeople.length>0||busy;graph.toggleAttribute('hidden',!displayPeople.length||busy);
   if(!displayPeople.length&&data.people.length){$('empty').querySelector('h3').textContent='No matching people';$('empty').querySelector('p').textContent='Clear the person or department filters to see the graph.';}else{$('empty').querySelector('h3').textContent='A company starts with its people.';$('empty').querySelector('p').textContent='Generate a graph to begin, or load the example to explore the controls.';}
   natural=layout(displayPeople);const {positions}=natural;
   const ids=new Set(displayPeople.map(p=>p.id));let edges=0;
