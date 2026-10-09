@@ -1,0 +1,6 @@
+{
+  "name": "graphedin", "version": "1.0.0", "private": true, "type": "module",
+  "description": "LinkedIn-sourced company people graph with evidence-aware hierarchy",
+  "engines": {"node": ">=22"},
+  "scripts": {"start": "node server/index.js", "build": "node scripts/build.js", "test": "node --test", "check": "node --check src/app.js && node --check src/model.js && node --check server/discovery.js && node --check server/index.js && node --check server/worker.js"}
+}
