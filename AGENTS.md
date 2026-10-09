@@ -14,3 +14,7 @@ Read README.md and docs/ARCHITECTURE.md before changing data acquisition. Read D
 - Update docs/SETUP_AND_TEST.md for each release that changes installation or test behavior.
 - Report actual deployment outcomes; a pushed workflow is not a successful deployment.
 - Do not change repository visibility without explicit authorization.
+
+- Keyless paste research is the default; do not require a paid API key or backend for the primary workflow.
+- Never insert raw clipboard HTML into the page. Extract safe profile anchors and render text only.
+- Additional same-company research must preserve user-edited roles and stored relationships.

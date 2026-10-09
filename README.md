@@ -1,10 +1,13 @@
 # GraphEdIn
 
-Company people graphs sourced from publicly indexed LinkedIn profiles. Enter a company name, inspect profile evidence, explore title-based hierarchy suggestions, and edit reporting relationships.
+Company people graphs sourced from user-pasted public LinkedIn research. Enter a company name, open a public search, paste results, review extracted people, and build a graph. The default workflow runs entirely on GitHub Pages without an API key or backend.
 
 ## What is implemented
 
-- Live company-name discovery through the Brave Search API, restricted to LinkedIn `/in/` URLs.
+- Keyless company research with Google, Bing and LinkedIn search launchers.
+- Plain-text, rich-clipboard and spreadsheet paste parsing; profile preview and selection before building the graph.
+- Deduplication by LinkedIn profile URL and merging that preserves existing user edits.
+- Optional automatic discovery through a self-hosted SearXNG instance (no search API key) or Brave Search (key required), restricted to LinkedIn `/in/` URLs.
 - Interactive SVG graph with pan, zoom, fit, keyboard navigation, department filters and people search.
 - Profile inspector with LinkedIn link, search excerpt, and observation date.
 - Optional dashed title-based reporting suggestions. No reporting relationships are invented as confirmed facts.
@@ -16,21 +19,23 @@ Company people graphs sourced from publicly indexed LinkedIn profiles. Enter a c
 
 ## Important scope
 
-This is **search-index research**, not a LinkedIn employee directory API. Search finds up to 20 indexed profile candidates per query; it cannot guarantee full coverage, current employment, or accurate titles. The parser retains excerpts for review. LinkedIn sign-in, session cookies, and authenticated scraping are not used. Company names can be ambiguous. The user must check each profile and remove unrelated or former employees.
+This is **search-index research**, not a LinkedIn employee directory API. Optional Brave search finds up to 20 profile candidates per query; SearXNG responses are limited to 50. Pasted research can include up to 500 people. Neither route can guarantee full coverage, current employment, or accurate titles. The parser retains excerpts for review. LinkedIn sign-in, session cookies, and authenticated scraping are not used. Company names can be ambiguous. The user must check each profile and remove unrelated or former employees.
 
 Public profile titles do not establish who reports to whom. Nodes are placed by title seniority; inferred links are disabled by default and visibly dashed when enabled. Solid lines mean **user-confirmed with supplied evidence**, not independently verified by GraphEdIn. Exports preserve this distinction. The fictional example is never substituted for a failed live search.
 
 ## Run locally
 
-Requires Node.js 22 or newer. No package installation is needed.
+The published Pages app requires no installation, API key or backend. Click **Research company**, open a search, copy the results including names and profile links, paste them, preview, and build. Additional batches for the same company merge into your graph.
+
+For local development, Node.js 22 or newer is required. No package installation is needed.
 
 ```sh
 cp .env.example .env
-# Edit .env and set BRAVE_SEARCH_API_KEY from your Brave Search account.
+# Optional automatic discovery: set SEARXNG_URL or BRAVE_SEARCH_API_KEY.
 node --env-file=.env server/index.js
 ```
 
-Open http://localhost:3000. Without a key, graph editing, imports, exports and the fictional example work; live discovery returns an explicit configuration error.
+Open http://localhost:3000. With no backend URL configured, **Research company** opens keyless paste research. Automatic discovery is optional; its backend requires either a SearXNG endpoint or a Brave key.
 
 ```sh
 npm run check
@@ -42,7 +47,7 @@ npm run build
 
 ## Deploy
 
-See [docs/SETUP_AND_TEST.md](docs/SETUP_AND_TEST.md) for complete GitHub Pages and backend setup. Pages cannot execute the search backend. After deploying the API, set its HTTPS origin in the app's **Connection settings**, or set `apiBaseUrl` in `config.json` for all visitors.
+See [docs/SETUP_AND_TEST.md](docs/SETUP_AND_TEST.md) for complete GitHub Pages and backend setup. The default keyless workflow works on Pages alone. Pages cannot execute an optional automatic-search backend. After deploying that API, set its HTTPS origin in the app's **Connection settings**, or set `apiBaseUrl` in `config.json` for all visitors.
 
 Production status must be checked in GitHub Actions; a committed workflow alone does not prove that Pages is live. A private repository requires a GitHub plan that supports Pages for private repositories. Enabling Pages is an administrative setting, separate from source write access.
 

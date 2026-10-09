@@ -16,7 +16,7 @@ export const server = http.createServer(async (req,res)=>{
   if(req.method === 'OPTIONS') {res.setHeader('Access-Control-Allow-Methods','GET, OPTIONS');res.writeHead(204);return res.end();}
   if(req.method !== 'GET') return json(res,405,{error:'Method not allowed.'});
   const url = new URL(req.url,'http://localhost');
-  if(url.pathname === '/api/health') return json(res,200,{configured:Boolean(process.env.BRAVE_SEARCH_API_KEY)});
+  if(url.pathname === '/api/health') return json(res,200,{configured:Boolean(process.env.BRAVE_SEARCH_API_KEY || process.env.SEARXNG_URL)});
   if(url.pathname === '/api/discover') {
     try {
       const company = companyName(url.searchParams.get('company'));
@@ -27,7 +27,7 @@ export const server = http.createServer(async (req,res)=>{
       if(count > 10) {res.setHeader('Retry-After','60');return json(res,429,{error:'Too many searches. Wait one minute.'});}
       const cached = cache.get(company.toLowerCase());
       if(cached && cached.expires > Date.now()) return json(res,200,cached.graph);
-      const graph = await discover(company,process.env.BRAVE_SEARCH_API_KEY);
+      const graph = await discover(company,process.env.BRAVE_SEARCH_API_KEY,fetch,process.env.SEARXNG_URL);
       if(cache.size >= 100) cache.delete(cache.keys().next().value);
       cache.set(company.toLowerCase(),{graph,expires:Date.now()+900000});return json(res,200,graph);
     } catch(e) {return json(res,e.status || (e.name === 'TimeoutError' ? 504 : 400),{error:e.name === 'TimeoutError' ? 'Search timed out. Try again.' : e.message});}

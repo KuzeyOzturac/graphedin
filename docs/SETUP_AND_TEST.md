@@ -1,10 +1,27 @@
-# Setup and test — version 1.0.0
+# Setup and test — version 1.1.0
+
+## Keyless use on GitHub Pages
+
+No installation or API key is required.
+
+1. Enter the company name and click **Research company**.
+2. Select a search focus: all roles, leadership, directors/heads, or managers/leads.
+3. Open Google or Bing using the generated query. LinkedIn search is also available and may ask you to sign in on LinkedIn itself.
+4. Copy public results containing names, titles and profile links. Normal browser copying can preserve links as rich clipboard content.
+5. Paste into GraphEdIn and click **Preview extracted people**.
+6. Deselect unrelated people and previous employees. Check uncertain roles against their profiles.
+7. Click **Build graph from selected people**. Reporting lines remain unknown; use explicit editing or optional dashed suggestions.
+8. Repeat for another role focus. Results for the same company merge, duplicates are skipped, and existing edits are preserved.
+
+For plain text or spreadsheets, use `Name [tab] Role [tab] LinkedIn profile URL [tab] Department`, one person per row. Bare URLs without names are not converted into fabricated people. An unrecognized paste produces an error instead of a sample graph. Clipboard content is processed in the browser and isn't uploaded.
+
+**Research company** uses this workflow whenever Connection settings are blank. Optional automatic search does not need to be configured to use the app.
 
 ## 1. Local development
 
 1. Clone the repository and open it in VS Code.
 2. Install Node.js 22 or newer.
-3. Copy `.env.example` to `.env` and set `BRAVE_SEARCH_API_KEY`. Obtain the key from https://api-dashboard.search.brave.com/; account and plan availability are controlled by Brave.
+3. Copy `.env.example` to `.env`. Leave search settings blank for paste research; optionally set `SEARXNG_URL` for automatic keyless search or `BRAVE_SEARCH_API_KEY` for Brave.
 4. Run `node --env-file=.env server/index.js` in the repository root.
 5. Open http://localhost:3000. Connection settings should be blank, which uses the same-origin local API.
 6. Run `npm run check`, `npm test`, and `npm run build`.
@@ -23,13 +40,13 @@ If Pages is unavailable because the repository is private, a supporting GitHub p
 
 ## 3. Live discovery backend
 
-GitHub Pages serves static files. To generate new graphs from company names, deploy one of these adapters separately.
+GitHub Pages serves static files. For optional automatic discovery, deploy one of these adapters separately. Keyless paste research already works without them.
 
 ### Option A: Node hosting
 
 - Runtime: Node.js 22+.
 - Start command: `node server/index.js`.
-- Set `BRAVE_SEARCH_API_KEY` as a hosting secret.
+- For automatic keyless discovery, set `SEARXNG_URL` to a SearXNG instance you own with JSON search enabled. Alternatively set `BRAVE_SEARCH_API_KEY` as a hosting secret.
 - Set `ALLOWED_ORIGINS=https://kuzeyozturac.github.io` (origin only, no `/graphedin/` path).
 - Use the port supplied by the host via `PORT`.
 - Enable HTTPS. Set the backend URL in frontend Connection settings.
@@ -39,7 +56,7 @@ The Node adapter rate-limits by socket address. Reverse proxies may cause users 
 
 ### Option B: Cloudflare Worker
 
-`server/worker.js` and `wrangler.jsonc` are included. In an authenticated Cloudflare environment:
+`server/worker.js` and `wrangler.jsonc` are included. For SearXNG, configure `SEARXNG_URL` as a Worker variable; no Brave secret is needed. For Brave, use the secret command below. In an authenticated Cloudflare environment:
 
 ```sh
 npx wrangler secret put BRAVE_SEARCH_API_KEY
@@ -75,4 +92,12 @@ in `config.json`, then push to redeploy. This is a public URL, never an API secr
 11. **Failures:** Missing key, unavailable API, no results, and provider rate limits must produce clear messages. A failed request must not replace existing work with fictional data.
 12. **Mobile:** At 390 px width, controls should be reachable, directory horizontally scrollable, and the inspector below the graph. Test touch panning on a real device.
 
-Automated checks cover the model, provider adapter and HTTP boundary. Real-provider search and deployment require your actual service credentials and hosting access. Browser visual QA is a separate check.
+Also test the keyless flow with pasted text, rich hyperlinks, tab-separated rows, duplicate batches and deselected candidates. Confirm neither a bare URL nor an unrelated non-LinkedIn link becomes a person.
+
+Automated checks cover the model, pasted-research parser, merge behavior, provider adapters and HTTP boundary. Real-provider search and deployment require your actual service credentials and hosting access. Browser visual QA is a separate check.
+
+## Self-hosted SearXNG requirements
+
+Use your own instance, not an arbitrary shared public instance. Enable JSON in `search.formats` in its `settings.yml`; otherwise the endpoint can return 403. The GraphEdIn backend sends `GET /search?q=...&format=json&categories=general` and maps `results[].content` to source excerpts. No search API key is sent. Upstream engines can still throttle requests; a blocked HTML response is treated as an error, not zero matches.
+
+Documentation: https://docs.searxng.org/dev/search_api.html

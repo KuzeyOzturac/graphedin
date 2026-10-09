@@ -19,15 +19,21 @@ export function parseResults(results, company, now = new Date().toISOString()) {
   }
   return validateGraph({company, fetchedAt:now, people});
 }
-export async function discover(company, key, fetchImpl = fetch) {
+export async function discover(company, key, fetchImpl = fetch, searxngUrl = '') {
   company = companyName(company);
-  if (!key) throw Object.assign(new Error('Search is not configured. Set BRAVE_SEARCH_API_KEY on the backend.'), {status:503});
+  if (!key && !searxngUrl) throw Object.assign(new Error('Automatic search is not configured. Use keyless paste research, or configure SEARXNG_URL on the backend.'), {status:503});
   const query = `site:linkedin.com/in/ "${company}"`;
-  const url = new URL('https://api.search.brave.com/res/v1/web/search');
-  url.search = new URLSearchParams({q:query,count:'20',extra_snippets:'true'}).toString();
-  const response = await fetchImpl(url, {headers:{Accept:'application/json','X-Subscription-Token':key},signal:AbortSignal.timeout(15000)});
+  const url = searxngUrl ? new URL('search', searxngUrl.replace(/\/$/, '') + '/') : new URL('https://api.search.brave.com/res/v1/web/search');
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) throw Object.assign(new Error('Invalid server search configuration.'), {status:503});
+  url.search = new URLSearchParams(searxngUrl ? {q:query,format:'json',categories:'general'} : {q:query,count:'20',extra_snippets:'true'}).toString();
+  const headers = {Accept:'application/json'};
+  if (!searxngUrl) headers['X-Subscription-Token'] = key;
+  const response = await fetchImpl(url, {headers,signal:AbortSignal.timeout(15000)});
   if (!response.ok) throw Object.assign(new Error(response.status === 429 ? 'Search provider rate limit reached. Try again later.' : 'The search provider could not complete the request. Check the backend configuration.'), {status:response.status === 429 ? 429 : 502});
-  const data = await response.json();
-  const graph = parseResults(data.web?.results || [], company);
-  return {...graph, query, coverage:'Up to 20 publicly indexed LinkedIn profile results. Snippets may describe previous roles. Verify current employment and titles. No reporting lines are verified by this search.'};
+  let data;
+  try { data = await response.json(); } catch { throw Object.assign(new Error('Search returned a non-JSON response. The provider may be blocked or misconfigured; use keyless paste research.'), {status:502}); }
+  if (searxngUrl && !Array.isArray(data.results)) throw Object.assign(new Error('Search returned an unsupported response.'), {status:502});
+  const results = searxngUrl ? data.results.slice(0, 50).map(r => ({...r,description:r.content})) : (data.web?.results || []);
+  const graph = parseResults(results, company);
+  return {...graph, query, coverage:`Up to ${searxngUrl ? 50 : 20} publicly indexed profile candidates. Snippets may describe previous roles. Verify current employment and titles. Reporting lines are not verified.`};
 }
